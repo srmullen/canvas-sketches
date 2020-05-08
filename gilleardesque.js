@@ -1,5 +1,6 @@
 import canvasSketch from 'canvas-sketch';
 import { random } from 'canvas-sketch-util';
+import { lerp } from 'canvas-sketch-util/math';
 import palettes from 'nice-color-palettes';
 import { Point } from 'paper';
 import P5 from 'p5';
@@ -19,32 +20,9 @@ const settings = {
   // units: 'in'
 };
 
-const nRects = 200;
-const rectIters = 200;
-const rectSize = 150;
 const alpha = 5;
-const circleSize = 150;
-const noiseRate = 0.01;
 
 // random.setSeed(21);
-
-function rect(pos, size) {
-  for (let i = 0; i < rectIters; i++) {
-    // p5.circle(
-    //   // pos.x + (random.value() - 0.5) * size.x,
-    //   // pos.y + (random.value() - 0.5) * size.y,
-    //   pos.x + random.gaussian() * size.x,
-    //   pos.y + random.gaussian() * size.y,
-    //   circleSize
-    // );
-    p5.rect(
-      pos.x + random.gaussian() * size.x,
-      pos.y + random.gaussian() * size.y,
-      size.x,
-      size.y
-    );
-  }
-}
 
 // Create a circle of splotches by random rotations of a vector.
 function circle1({
@@ -67,32 +45,44 @@ function circle1({
   }
 }
 
+// Choose locations randomly and if they are within the circle, keep them.
+function circle2({
+  center,
+  radius,
+  splotch = (pos) => { p5.rect(pos.x, pos.y, 20, 20) },
+  iters = 1000
+}) {
+  let count = 0;
+  while (count < iters) {
+    const x = random.value(-1, 1) * radius * 2;
+    const y = random.value(-1, 1) * radius * 2;
+    const point = center.subtract(radius).add(x, y);
+    if (center.getDistance(point) < radius) {
+      splotch(point);
+      count++;
+    }
+  }
+}
+
 const palette = random.pick(palettes);
 
+function createGrid(nx, ny) {
+  const grid = [];
+  for (let x = 0; x < nx; x++) {
+    for (let y = 0; y < ny; y++) {
+      const u = nx < 1 ? 0.5 : (x / (nx - 1));
+      const v = ny < 1 ? 0.5 : (y / (ny - 1));
+      grid.push([u, v]);
+    }
+  }
+  return grid;
+}
+
 const sketch = () => {
-  // return ({ width, height }) => {
-  //   p5.noStroke();
-
-  //   for (let i = 0; i < nRects; i++) {
-  //     const x = (width / 2) + (random.value() - 0.5) * width;
-  //     const y = (height / 2) + (random.value() - 0.5) * height;
-  //     const n = Math.floor(((random.noise2D(x * noiseRate, y * noiseRate) + 1) * 0.5) * palette.length);
-  //     const hex = palette[n];
-  //     const color = convert.hex.rgb(hex);
-      
-  //     p5.fill(...color, alpha);
-      
-  //     rect(
-  //       { x, y },
-  //       { x: rectSize, y: rectSize }
-  //     );
-  //   }
-  // };
-
   return ({ width, height }) => {
     p5.noStroke();
 
-    p5.fill(255, 0, 0, 5);
+    const grid = createGrid(5, 7);
 
     const splotch = (pos) => {
       const size = 50
@@ -103,23 +93,23 @@ const sketch = () => {
       p5.pop();
     }
 
-    circle1({
-      center: new Point({ x: width / 2, y: height / 2 }),
-      radius: 200,
-      splotch
-    });
+    const margin = 150;
 
-    // for (let i = 0; i < nRects; i++) {
-    //   const x = (width / 2) + (random.value() - 0.5) * width;
-    //   const y = (height / 2) + (random.value() - 0.5) * height;
-    //   const n = Math.floor(((random.noise2D(x * noiseRate, y * noiseRate) + 1) * 0.5) * palette.length);
-    //   const hex = palette[n];
-    //   const color = convert.hex.rgb(hex);
+    for (let i = 0; i < grid.length; i++) {
+      const hex = random.pick(palette);
+      const color = convert.hex.rgb(hex);
+      p5.fill(...color, alpha);
 
-    //   p5.fill(...color, alpha);
-
-      
-    // }
+      const [ u, v ] = grid[i];
+      const x = lerp(margin, width - margin, u);
+      const y = lerp(margin, height - margin, v);
+      circle2({
+        center: new Point({ x, y }),
+        radius: 100,
+        splotch,
+        iters: 1000
+      });
+    }
   };
 };
 
