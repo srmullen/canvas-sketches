@@ -15,14 +15,16 @@ const settings = {
   p5: true,
   // dimensions: [ 2048, 2048 ]
   orientation: 'portrait',
-  dimensions: 'postcard',
+  dimensions: 'a4',
   pixelsPerInch: 300,
   // units: 'in'
 };
 
 const alpha = 5;
 
-// random.setSeed(21);
+const seed = Math.floor(Math.random() * 100000);
+console.log(seed);
+random.setSeed(seed);
 
 // Create a circle of splotches by random rotations of a vector.
 function circle1({
@@ -35,7 +37,6 @@ function circle1({
     // Need to push extext outwards becuase the further away from the center
     // the more space out points will be.
     const extent = random.value();
-    // buckets[Math.floor(extent * 10)] += 1;
     const vec = new Point(1, 0)
       .rotate(random.value() * 360)
       .multiply(radius * extent);
@@ -64,6 +65,23 @@ function circle2({
   }
 }
 
+function rectangle({
+  pos, 
+  width, 
+  height,
+  splotch,
+  iters = 1000
+}) {
+}
+
+/**
+ * Ideas
+ * - Circle packing with watercolor circles.
+ * - Fill the grid with rectangles. With overlaps, without overlaps.
+ * - Poisson-disc sampling to fill page with circles.
+ * - Fill shapes with lines rather than rectangles.
+ */
+
 const palette = random.pick(palettes);
 
 function createGrid(nx, ny) {
@@ -78,7 +96,133 @@ function createGrid(nx, ny) {
   return grid;
 }
 
-const sketch = () => {
+const randomCirclesSketch = () => {
+  const nCircles = 350;
+  const minRadius = 30;
+  const maxRadius = 250;
+
+  return ({ width, height }) => {
+    p5.noStroke();
+
+    const splotch = (pos) => {
+      const size = 50
+      p5.push();
+      p5.translate(pos.x, pos.y);
+      p5.rotate(Math.PI * 2 * random.value());
+      p5.rect(-size / 2, -size / 2, size, size);
+      p5.pop();
+    }
+
+    const circles = []
+    while (circles.length < nCircles) {
+      const radius = lerp(minRadius, maxRadius, random.value());
+      const x = random.value() * width;
+      const y = random.value() * height;
+      circles.push({
+        radius,
+        x,
+        y
+      });
+    }
+
+    for (let i = 0; i < circles.length; i++) {
+      const { x, y, radius } = circles[i];
+      const hex = random.pick(palette);
+      const color = convert.hex.rgb(hex);
+      p5.fill(...color, alpha);
+
+      circle2({
+        center: new Point({ x, y }),
+        radius,
+        splotch,
+        iters: 1000
+      });
+    }
+  }
+}
+
+const circlePackingSketch = () => {
+  const nCircles = 350;
+  const minRadius = 10;
+  const maxRadius = 250;
+
+  function overlaps(c1, c2) {
+    const dist = c1.center.getDistance(c2.center);
+    return dist < c1.radius + c2.radius;
+  }
+
+  function packCircles(nCircles = 150) {
+    let circles = [];
+
+    let iters = 0
+    while (circles.length < nCircles && iters < 10000) {
+      const radius = lerp(minRadius, maxRadius, random.value());
+      const x = random.value() * width;
+      const y = random.value() * height;
+      const circle = {
+        radius,
+        center: new Point(x, y)
+      }
+      if (!circles.length) {
+        circles.push(circle);
+      } else {
+        let overlap = false;
+        for (let i = 0; i < circles.length; i++) {
+          if (overlaps(circles[i], circle)) {
+            overlap = true;
+            break;
+          }
+        }
+        if (!overlap) {
+          circles.push(circle);
+        }
+      }
+      iters++;
+    }
+
+    return circles;
+  }
+
+  return ({ width, height }) => {
+    p5.noStroke();
+
+    const splotch = (pos) => {
+      const size = 50
+      p5.push();
+      p5.translate(pos.x, pos.y);
+      p5.rotate(Math.PI * 2 * random.value());
+      p5.rect(-size / 2, -size / 2, size, size);
+      p5.pop();
+    }
+
+    const circles = packCircles(nCircles);
+
+    for (let i = 0; i < circles.length; i++) {
+      const { center, radius } = circles[i];
+
+      // p5.stroke('black');
+      // p5.strokeWeight(5);
+      // p5.noFill();
+      // p5.circle(center.x, center.y, radius * 2)
+      // p5.noStroke();
+
+      const hex = random.pick(palette);
+      const color = convert.hex.rgb(hex);
+      p5.fill(...color, alpha);
+
+      circle2({
+        center,
+        radius,
+        splotch,
+        iters: 1000
+      });
+    }
+  }
+}
+
+
+// Circle Grid Sketch
+const circleGridSketch = () => {
   return ({ width, height }) => {
     p5.noStroke();
 
@@ -113,4 +257,6 @@ const sketch = () => {
   };
 };
 
-canvasSketch(sketch, settings);
+// canvasSketch(circleGridSketch, settings);
+// canvasSketch(randomCirclesSketch, settings);
+canvasSketch(circlePackingSketch, settings);
